@@ -1,26 +1,18 @@
-import psycopg2
+from repo.crud_logic import ArticleBotCrud
 
-from config.config import config
-
-from common_entities.errors import UserInBlackList
-import boto3
+from common_entities.logs import logger
 
 
 def check_blacklist(func):
-
+    """Check whether user is in our black list"""
     async def wrapper(*args):
         telegram_request = args[-1]
-        dynamodb = boto3.client(config.db_client)
-        response = dynamodb.query(
-            TableName=config.table_name,
-            KeyConditionExpression="user_id = :id",
-            ExpressionAttributeValues={
-                ":id": {"N": str(telegram_request["message"]["from"]["id"])}
-            }
-        )
-        results = response.get('user_id')
+        results = ArticleBotCrud().check_user(str(telegram_request["message"]["from"]["id"]))
         if results:
-            raise UserInBlackList
+            return await logger.user_is_banned(user_id=telegram_request["message"]["from"]["id"],
+                                               first_name=telegram_request["from"]["first_name"],
+                                               last_name=telegram_request["from"]["last_name"],
+                                               text_message=telegram_request["message"]["text"])
         return await func(*args)
     return wrapper
 
