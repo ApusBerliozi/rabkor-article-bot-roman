@@ -7,4 +7,5 @@ class Config(object):
     that are banned"""
     article_bot_token: str
     writers_chat_id: str
+    news_chat_id: str
     table_name: str

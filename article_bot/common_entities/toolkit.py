@@ -11,5 +11,10 @@ class MessageHandler(object):
             index += 1
         return chat_id
 
+    def remove_commands(self, commands: list, message: str):
+        for command in commands:
+            message = message.replace(command, "")
+        return message
+
 
 message_handler = MessageHandler()

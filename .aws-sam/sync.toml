@@ -5,5 +5,5 @@ dependency_layer = false
 latest_infra_sync_time = "2023-07-02T14:56:16.939544"
 
 [resource_sync_states."ZipFunctionSyncFlow:HelloWorldFunction"]
-hash = "89908109e3055ac458efded61724f14ea435b59bbe0d3e664cd1d8ad5508c6a5"
-sync_time = "2023-07-07T07:11:03.333104"
+hash = "00c57f68b6031186a44e053e4712ca74e5dc48006aa1773162428b3ec8ba2863"
+sync_time = "2023-07-09T07:29:50.781091"
