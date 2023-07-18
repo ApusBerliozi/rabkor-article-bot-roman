@@ -12,14 +12,14 @@ class ArticleBotCrud(object):
     def ban_user(self, user_id: int) -> None:
         """Places user's id inside black list's table"""
         item = {"user_id": {"N": user_id}}
-        response = self.dynamodb.put_item(
+        self.dynamodb.put_item(
             TableName=config.table_name,
             Item=item
         )
 
     def unban_user(self, user_id: int) -> None:
         """Removes user's id from black list's table"""
-        response = self.dynamodb.delete_item(
+        self.dynamodb.delete_item(
             TableName=config.table_name,
             Key={
                 "user_id": {"N": user_id}
@@ -28,9 +28,10 @@ class ArticleBotCrud(object):
 
     def check_user(self, user_id: str) -> typing.Optional[dict]:
         """Checks whether user's id inside black list's table"""
-        response = self.dynamodb.query(
+        response = self.dynamodb.get_item(
             TableName=config.table_name,
-            KeyConditionExpression="user_id = :id",
-            ExpressionAttributeValues={":id": {"N": user_id}}
+            Key={
+                "user_id": {"N": user_id}
+            }
         )
-        return response.get("Items")
+        return response.get("Item")

@@ -5,7 +5,7 @@ codeuri = "C:\\Users\\User\\PycharmProjects\\rabkor-article-bot\\article_bot"
 runtime = "python3.10"
 architecture = "x86_64"
 handler = "app.lambda_handler"
-manifest_hash = "5ce0db68c457eb99d3ef231666cd5003"
+manifest_hash = "e6cf144e349b11827561bb30f3a998fb"
 packagetype = "Zip"
 functions = ["Function"]
 
