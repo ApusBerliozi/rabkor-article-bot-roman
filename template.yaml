@@ -3,9 +3,8 @@ Transform: AWS::Serverless-2016-10-31
 Description: >
   rabkor-article-bot
 
-  Sample SAM Template for rabkor-article-bot
+  SAM Template for rabkor-article-bot
 
-# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Globals:
   Function:
     Timeout: 3
@@ -27,15 +26,12 @@ Resources:
             Method: get
 
 Outputs:
-  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
-  # Find out more about other implicit resources you can reference within SAM
-  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
   HelloWorldApi:
     Description: "API Gateway endpoint URL for Prod stage for Hello World function"
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/"
   HelloWorldFunction:
-    Description: "Hello World Lambda Function ARN"
+    Description: "Lambda Function for rabkor-article-bot ARN"
     Value: !GetAtt HelloWorldFunction.Arn
   HelloWorldFunctionIamRole:
-    Description: "Implicit IAM Role created for Hello World function"
+    Description: "Implicit IAM Role created for rabkor-article-bot Lambda function"
     Value: !GetAtt HelloWorldFunctionRole.Arn
