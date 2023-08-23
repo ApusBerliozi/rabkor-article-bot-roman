@@ -28,9 +28,9 @@ def user_sent_article(user_id: str, first_name: str, last_name: str) -> None:
     logging.info(f"Пользователь {first_name} {last_name} с id {user_id} отправил статью.")
 
 
-def admin_replied(user_id: str, first_name: str, last_name: str, message: str) -> None:
+def admin_replied(user_id: str, first_name: str) -> None:
     """Informs you that admin replied to user"""
-    logging.info(f"Администратор {first_name} {last_name} с id {user_id} ответил пользователю. Текст: {message}")
+    logging.info(f"Администратор ответил пользователю {first_name}  с id {user_id} .")
 
 
 def empty_message_error(user_id: str) -> None:
