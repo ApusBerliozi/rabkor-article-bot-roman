@@ -1,33 +1,40 @@
 import re
 
-from aiogram import Bot, Dispatcher
-from aiogram.types import ContentType
+from aiogram import Bot, Dispatcher, types
+from aiogram.dispatcher.filters import BoundFilter
+from aiogram.types import ContentTypes, ChatType
 from aiogram.types import Message
 
 from config import config
-from repo.crud_logic import ArticleBotCrud
+from repo.crud_logic import BlackListTable, MessageTable, GroupsTable
 import common_methods.logs as logger
 from common_methods.message_toolkit import message_handler
 from common_methods.files_toolkit import fetch_bot_replies
 
 bot = Bot(token=config.article_bot_token)
 dp = Dispatcher(bot)
-crud_logic = ArticleBotCrud()
+moderation = BlackListTable()
 bot_replies = fetch_bot_replies()
+kb = [
+        [types.KeyboardButton(text="Письма Б.Ю. Кагарлицкому")],
+        [types.KeyboardButton(text="Отправить статью на публикацию")],
+        [types.KeyboardButton(text="Ваши политические питомцы")],
+        [types.KeyboardButton(text="Хочу помочь Рабкору")],
+        [types.KeyboardButton(text="Обратная связь")],
+        [types.KeyboardButton(text="Прочее")]]
+
+keyboard = types.ReplyKeyboardMarkup(keyboard=kb,
+                                     resize_keyboard=True)
 
 
-async def missing_brackets(message: Message) -> None:
-    """This function reminds to the admins that inorder to communicate with user, they should enclose they id in square brackets"""
-    await bot.send_message(chat_id=config.writers_chat_id,
-                           text=bot_replies.missing_brackets)
-    logger.brackets_error(user_id=message.from_user.id)
+class ChatFilter(BoundFilter):
+    chat_id = 11111111111
 
+    def __init__(self, chat_id):
+        self.chat_id = chat_id
 
-async def empty_message(message: Message) -> None:
-    """This function reminds to the admins that they shouldn't send empty message"""
-    await bot.send_message(chat_id=message.from_user.id,
-                           text=bot_replies.empty_message)
-    logger.empty_message_error(user_id=message.from_user.id)
+    async def check(self, message: Message):
+        return self.chat_id == message.chat.id
 
 
 async def moderate(message: Message) -> None:
@@ -48,27 +55,16 @@ async def easter_egg(message: Message) -> None:
 
 async def check_admin_message(message: Message, text: str):
     """Ensures that admins had sent a proper message to the bot"""
-    if str(message.chat.id) != config.writers_chat_id:
+    if message.chat.id != config.writers_chat_id:
         await logger.permission_denied(user_id=message.from_user.id)
         return "Error"
-    if text == "" or text == len(text) * text[0]:
-        await empty_message(message=message)
-        return "Error"
-    open_bracket = text.find("[")
-    close_bracket = text.find("]")
-    if close_bracket == -1 or open_bracket == -1:
-        await missing_brackets(message=message)
-        return "Error"
 
 
-async def check_user_message(message: Message, text: str):
+async def check_user_message(message: Message, text: str | None):
     """Ensures that user had sent a message that doesn't contain Russian swear words in the writers' chat"""
     with open("static/bad_words", "r") as file:
         swear_list = file.read().splitlines()
     if text:
-        if text == "" or text == len(text) * text[0]:
-            await empty_message(message=message)
-            return "Error"
         text = text.lower()
         for word in re.findall(r'\w+', text):
             if word in swear_list:
@@ -79,93 +75,112 @@ async def check_user_message(message: Message, text: str):
 @dp.message_handler(commands=['start'])
 async def greetings(message: Message) -> None:
     """This function sends greetings message with instructions about communication with admins"""
-    await bot.send_message(chat_id=message.chat.id,
-                           text=bot_replies.greetings)
+    if str(message.chat.id) not in config.chats_ids:
+        GroupsTable().create_new_user(user_id=message.from_user.id)
+        await bot.send_message(chat_id=message.from_user.id,
+                               text=bot_replies.greetings,
+                               reply_markup=keyboard)
+    return
 
 
-@dp.message_handler(commands=['reply'])
 async def reply_to_user(message: Message) -> None:
     """This function allows admins' communication with user"""
-    text = message.text.replace("/reply", "")
-    error = await check_admin_message(message=message, text=text)
-    if error:
-        return None
-    chat_id = message_handler.find_id(message=message.text)
-    text = text.replace("["+chat_id+"]", "")
-    await bot.send_message(chat_id=chat_id,
-                           text=text)
+    user_id = MessageTable().get_user_id(message_id=message.reply_to_message.message_id)
+    await bot.copy_message(chat_id=user_id,
+                           from_chat_id=message.chat.id,
+                           message_id=message.message_id)
     logger.admin_replied(user_id=message.from_user.id,
-                         first_name=message.from_user.first_name,
-                         last_name=message.from_user.last_name,
-                         message=text)
+                         first_name=message.from_user.first_name)
 
 
-@dp.message_handler(commands=["article"])
-async def send_article(message: Message) -> None:
+@dp.message_handler(content_types=[*ContentTypes.DOCUMENT,
+                                   *ContentTypes.AUDIO,
+                                   *ContentTypes.VIDEO,
+                                   *ContentTypes.PHOTO,
+                                   *ContentTypes.VOICE,
+                                   *ContentTypes.VIDEO_NOTE,
+                                   *ContentTypes.TEXT])
+async def message_regulator(message: Message) -> None:
     """This function sends article to the editors' chat"""
-    text = message.text.replace("/article", "")
+    text = message_handler.find_text(message=message)
+    if answer := message_handler.check_group(message=message,
+                                             text=text):
+        await send_button_message(chat_id=message.from_user.id, text=answer)
+        return
+    if "/ban" in text and str(message.chat.id) in config.chats_ids and message.reply_to_message.from_user.is_bot is True:
+        await ban_user(message=message)
+        return
+    elif "/unban" in text and str(message.chat.id) in config.chats_ids and message.reply_to_message.from_user.is_bot is True:
+        await unban_user(message=message)
+        return
+    elif message.reply_to_message \
+            and str(message.chat.id) in config.chats_ids \
+            and message.reply_to_message.from_user.is_bot is True\
+            and not message.voice\
+            and not message.video_note:
+        await reply_to_user(message=message)
+        return
+    elif "/help_admin" in text and str(message.chat.id) in config.chats_ids:
+        await documentation(message=message)
+        return
+    elif str(message.chat.id) not in config.chats_ids:
+        await communicate_with_admins(message=message)
+        return
+
+
+async def send_button_message(chat_id, text):
+    await bot.send_message(chat_id=chat_id,
+                           text=text,
+                           parse_mode="HTML")
+
+
+async def communicate_with_admins(message: Message) -> str | None:
+    """This function forwards document with article from user to the editors' chat"""
+    text = ""
+    if message.text:
+        text = message.text
+    elif message.caption:
+        text = message.caption
     error = await check_user_message(message=message, text=text)
     if error:
-        return None
+        return
+    table_response = GroupsTable().get_group_id(user_id=message.from_user.id)
+    button_type = table_response.get("button")
+    group_id = table_response.get("group_id")
     await bot.send_message(chat_id=message.from_user.id,
                            text=bot_replies.article_received)
-    await bot.send_message(chat_id=config.writers_chat_id,
-                           text=f"Нам пишет {message.from_user.first_name} {message.from_user.last_name} \n"\
-                                f"ID пользователя <b>[{message.from_user.id}]</b> \n" + text,
+    await bot.send_message(chat_id=group_id,
+                           text=f"Нам пишет <b>{message.from_user.first_name}, {button_type}</b>",
                            parse_mode="HTML")
+    message_id = await bot.copy_message(chat_id=group_id,
+                                        from_chat_id=message.from_user.id,
+                                        message_id=message.message_id)
+    MessageTable().create_new_message(user_id=message.from_user.id,
+                                      message_id=message_id.message_id)
     logger.user_sent_article(user_id=message.from_user.id,
                              first_name=message.from_user.first_name,
                              last_name=message.from_user.last_name)
 
 
-@dp.message_handler(content_types=ContentType.DOCUMENT)
-async def forward_document(message: Message) -> None:
-    """This function forwards document with article from user to the editors' chat"""
-    error = await check_user_message(message=message, text=message.caption)
-    if error:
-        return None
-    await bot.send_message(chat_id=message.from_user.id,
-                           text=bot_replies.article_received)
-    await bot.send_message(chat_id=config.writers_chat_id,
-                           text=f"Нам пишет {message.from_user.first_name} {message.from_user.last_name} \n"\
-                                f"ID пользователя <b>[{message.from_user.id}]</b> \n",
-                           parse_mode="HTML")
-    await bot.forward_message(chat_id=config.writers_chat_id,
-                              from_chat_id=message.from_user.id,
-                              message_id=message.message_id)
-    logger.user_sent_article(user_id=message.from_user.id,
-                             first_name=message.from_user.first_name,
-                             last_name=message.from_user.last_name)
-
-
-@dp.message_handler(commands=['ban'])
 async def ban_user(message: Message) -> None:
     """This function bans user"""
-    error = await check_admin_message(message=message,
-                                      text=message.text)
-    if error:
-        return None
-    user_id = message_handler.find_id(message=message.text)
-    crud_logic.ban_user(user_id=user_id)
+    user_id = MessageTable().get_user_id(message_id=message.reply_to_message.message_id)
+    moderation.ban_user(user_id=user_id)
     await bot.send_message(chat_id=user_id,
                            text=bot_replies.you_are_banned)
     logger.user_was_banned(user_id=user_id)
 
 
-@dp.message_handler(commands=['unban'])
 async def unban_user(message: Message) -> None:
     """This function unbans user"""
-    error = await check_admin_message(message=message, text=message.text)
-    if error:
-        return None
-    user_id = message_handler.find_id(message=message.text)
-    crud_logic.unban_user(user_id=user_id)
+    user_id = MessageTable().get_user_id(message_id=message.reply_to_message.message_id)
+    moderation.unban_user(user_id=user_id)
     await bot.send_message(chat_id=user_id,
                            text=bot_replies.you_are_unbanned)
     logger.user_was_unbanned(user_id=user_id)
 
 
-@dp.message_handler(commands='help_admin')
+@dp.message_handler(commands=['help_admin'])
 async def documentation(message: Message) -> None:
     """This function sends documentation in the editors' chat"""
     await bot.send_message(chat_id=config.writers_chat_id,
@@ -173,7 +188,6 @@ async def documentation(message: Message) -> None:
     logger.documentation_was_requested(user_id=message.from_user.id)
 
 
-@dp.message_handler(commands=["news"])
 async def send_news(message: Message) -> None:
     """This function sends received piece of news to admin"""
     text = message.text.replace("/news", "")

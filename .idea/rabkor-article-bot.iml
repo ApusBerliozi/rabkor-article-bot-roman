@@ -24,9 +24,7 @@
               </option>
               <option name="stackName" value="rabkor-article-bot-roman" />
               <option name="tags">
-                <map>
-                  <entry key="STAGE" value="dev" />
-                </map>
+                <map />
               </option>
               <option name="tempParameterOverrides">
                 <map />
