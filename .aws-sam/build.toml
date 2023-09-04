@@ -7,6 +7,6 @@ architecture = "x86_64"
 handler = "app.lambda_handler"
 manifest_hash = "e6cf144e349b11827561bb30f3a998fb"
 packagetype = "Zip"
-functions = ["HelloWorldFunction"]
+functions = ["Function"]
 
 [layer_build_definitions]

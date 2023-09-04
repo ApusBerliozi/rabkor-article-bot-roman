@@ -100,7 +100,7 @@ async def reply_to_user(message: Message) -> None:
                                    *ContentTypes.VOICE,
                                    *ContentTypes.VIDEO_NOTE,
                                    *ContentTypes.TEXT])
-async def send_message(message: Message) -> None:
+async def message_regulator(message: Message) -> None:
     """This function sends article to the editors' chat"""
     text = message_handler.find_text(message=message)
     if answer := message_handler.check_group(message=message,
@@ -164,11 +164,7 @@ async def communicate_with_admins(message: Message) -> str | None:
 
 async def ban_user(message: Message) -> None:
     """This function bans user"""
-    error = await check_admin_message(message=message,
-                                      text=message.reply_to_message.text)
-    if error:
-        return None
-    user_id = message_handler.find_id(message=message.reply_to_message.text)
+    user_id = MessageTable().get_user_id(message_id=message.reply_to_message.message_id)
     moderation.ban_user(user_id=user_id)
     await bot.send_message(chat_id=user_id,
                            text=bot_replies.you_are_banned)
@@ -177,10 +173,7 @@ async def ban_user(message: Message) -> None:
 
 async def unban_user(message: Message) -> None:
     """This function unbans user"""
-    error = await check_admin_message(message=message, text=message.reply_to_message.text)
-    if error:
-        return None
-    user_id = message_handler.find_id(message=message.reply_to_message.text)
+    user_id = MessageTable().get_user_id(message_id=message.reply_to_message.message_id)
     moderation.unban_user(user_id=user_id)
     await bot.send_message(chat_id=user_id,
                            text=bot_replies.you_are_unbanned)

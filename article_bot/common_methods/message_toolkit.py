@@ -14,16 +14,6 @@ class MessageHandler:
         return cls.instance
 
     @staticmethod
-    def find_id(message: str) -> str:
-        """Finds user's id that is placed inside [] brackets"""
-        chat_id = ""
-        index = message.find("[")+1
-        while message[index] != "]":
-            chat_id = chat_id + message[index]
-            index += 1
-        return chat_id
-
-    @staticmethod
     def check_group(text: str,
                     message: Message):
         if text == "Письма Б.Ю. Кагарлицкому":
