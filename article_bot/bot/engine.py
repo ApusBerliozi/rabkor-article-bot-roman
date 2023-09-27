@@ -1,7 +1,6 @@
 import re
 
 from aiogram import Bot, Dispatcher, types
-from aiogram.dispatcher.filters import BoundFilter
 from aiogram.types import ContentTypes, ChatType
 from aiogram.types import Message
 
@@ -11,11 +10,11 @@ import common_methods.logs as logger
 from common_methods.message_toolkit import message_handler
 from common_methods.files_toolkit import fetch_bot_replies
 
-bot = Bot(token=config.article_bot_token)
-dp = Dispatcher(bot)
-moderation = BlackListTable()
-bot_replies = fetch_bot_replies()
-kb = [
+bot: Bot = Bot(token=config.article_bot_token)
+dp: Dispatcher = Dispatcher(bot)
+moderation: BlackListTable = BlackListTable()
+bot_replies: callable = fetch_bot_replies()
+kb: list[list[types.KeyboardButton]] = [
         [types.KeyboardButton(text="Письма Б.Ю. Кагарлицкому")],
         [types.KeyboardButton(text="Отправить статью на публикацию")],
         [types.KeyboardButton(text="Ваши политические питомцы")],
@@ -23,18 +22,8 @@ kb = [
         [types.KeyboardButton(text="Обратная связь")],
         [types.KeyboardButton(text="Прочее")]]
 
-keyboard = types.ReplyKeyboardMarkup(keyboard=kb,
-                                     resize_keyboard=True)
-
-
-class ChatFilter(BoundFilter):
-    chat_id = 11111111111
-
-    def __init__(self, chat_id):
-        self.chat_id = chat_id
-
-    async def check(self, message: Message):
-        return self.chat_id == message.chat.id
+keyboard: types.ReplyKeyboardMarkup = types.ReplyKeyboardMarkup(keyboard=kb,
+                                                                resize_keyboard=True)
 
 
 async def moderate(message: Message) -> None:
@@ -51,13 +40,6 @@ async def easter_egg(message: Message) -> None:
     logger.easter_egg_was_found(user_id=message.from_user.id,
                                 first_name=message.from_user.first_name,
                                 last_name=message.from_user.last_name)
-
-
-async def check_admin_message(message: Message, text: str):
-    """Ensures that admins had sent a proper message to the bot"""
-    if message.chat.id != config.writers_chat_id:
-        await logger.permission_denied(user_id=message.from_user.id)
-        return "Error"
 
 
 async def check_user_message(message: Message, text: str | None):
@@ -102,7 +84,7 @@ async def reply_to_user(message: Message) -> None:
                                    *ContentTypes.TEXT])
 async def message_regulator(message: Message) -> None:
     """This function sends article to the editors' chat"""
-    text = message_handler.find_text(message=message)
+    text: str = message_handler.find_text(message=message)
     if answer := message_handler.check_group(message=message,
                                              text=text):
         await send_button_message(chat_id=message.from_user.id, text=answer)
@@ -187,20 +169,4 @@ async def documentation(message: Message) -> None:
                            text=bot_replies.documentation)
     logger.documentation_was_requested(user_id=message.from_user.id)
 
-
-async def send_news(message: Message) -> None:
-    """This function sends received piece of news to admin"""
-    text = message.text.replace("/news", "")
-    error = await check_user_message(message=message, text=text)
-    if error:
-        return None
-    await bot.send_message(chat_id=message.from_user.id,
-                           text=bot_replies.news_received)
-    await bot.send_message(chat_id=config.news_chat_id,
-                           text=f"Нам пишет {message.from_user.first_name} {message.from_user.last_name} \n"\
-         f"ID пользователя <b>[{message.from_user.id}]</b> \n" + text,
-                           parse_mode="HTML")
-    logger.news_were_sent(user_id=message.from_user.id,
-                          first_name=message.from_user.first_name,
-                          last_name=message.from_user.last_name)
 
